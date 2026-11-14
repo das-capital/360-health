@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
+import { loadFoodDay, loadTargets } from "@/lib/food/db";
+import { judgeDay, summariseDay } from "@/lib/food/summary";
 import { useLogicalToday } from "@/lib/hooks";
 import { addDays, formatLogicalDate, type LogicalDate } from "@/lib/logical-date";
 import { getSupabase } from "@/lib/supabase/client";
@@ -13,6 +15,8 @@ type Item = {
   href: string;
   /** Short summary once logged; null while still pending. */
   logged: string | null;
+  /** Shown in red, e.g. when calories are over target. */
+  alert?: string;
 };
 
 const number = new Intl.NumberFormat("en-IN");
@@ -21,9 +25,9 @@ async function loadChecklist(today: LogicalDate): Promise<Item[]> {
   const db = getSupabase();
   const yesterday = addDays(today, -1);
 
-  const [dayTotal, meals, steps, sleep, mobility, workouts, cardio, rest] = await Promise.all([
-    db.from("food_day_totals").select("calories").eq("date", today).maybeSingle(),
-    db.from("food_meals").select("calories").eq("date", today),
+  const [foodDay, targets, steps, sleep, mobility, workouts, cardio, rest] = await Promise.all([
+    loadFoodDay(today),
+    loadTargets(),
     db.from("steps").select("count").eq("date", today).maybeSingle(),
     db.from("sleep").select("score, skipped").eq("date", today).maybeSingle(),
     db.from("mobility").select("done").eq("date", yesterday).maybeSingle(),
@@ -32,24 +36,25 @@ async function loadChecklist(today: LogicalDate): Promise<Item[]> {
     db.from("rest_days").select("date").eq("date", today).maybeSingle(),
   ]);
 
-  const failed = [dayTotal, meals, steps, sleep, mobility, workouts, cardio, rest].find((r) => r.error);
+  const failed = [steps, sleep, mobility, workouts, cardio, rest].find((r) => r.error);
   if (failed?.error) throw new Error(failed.error.message);
 
-  // Food: the All Meals total wins if present, otherwise the sum of meals.
+  // Food: same numbers and the same live over-target rule as the Food screen.
+  const foodSummary = summariseDay(foodDay.meals, foodDay.dayTotals);
+  const calories = judgeDay(foodSummary, targets, today, today).calories;
   let food: string | null = null;
-  if (dayTotal.data?.calories != null) {
-    food = `${number.format(dayTotal.data.calories)} cal`;
-  } else if (meals.data && meals.data.length > 0) {
-    const sum = meals.data.reduce((total, meal) => total + (meal.calories ?? 0), 0);
-    food = `${number.format(sum)} cal so far`;
+  if (foodSummary) {
+    food = `${number.format(calories.value ?? 0)} cal`;
+    if (calories.target !== null) food += ` of ${number.format(calories.target)}`;
   }
+  const foodAlert = calories.over !== null ? `Over target by ${number.format(calories.over)} cal` : undefined;
 
   let exercise: string | null = null;
   if ((workouts.data?.length ?? 0) > 0 || (cardio.data?.length ?? 0) > 0) exercise = "Workout logged";
   else if (rest.data) exercise = "Rest day";
 
   return [
-    { key: "food", label: "Food", href: "/food", logged: food },
+    { key: "food", label: "Food", href: "/food", logged: food, alert: foodAlert },
     {
       key: "steps",
       label: "Steps",
@@ -133,6 +138,7 @@ export default function TodayPage() {
                     <span className={item.logged ? "text-emerald-400" : "text-neutral-500"}>
                       {item.logged ?? "Pending"}
                     </span>
+                    {item.alert && <span className="block text-sm text-red-400">{item.alert}</span>}
                   </span>
                   <span className="text-neutral-500">›</span>
                 </Link>
