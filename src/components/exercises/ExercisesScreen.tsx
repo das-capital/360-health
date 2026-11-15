@@ -94,6 +94,18 @@ export function ExercisesScreen() {
 
   const log = loaded && loaded.date === date ? loaded.log : null;
 
+  // An empty list or a missing column both mean the Phase 3 SQL has not been run yet.
+  if (exercises?.length === 0 || (error && /does not exist/i.test(error))) {
+    return (
+      <>
+        <PageHeader title="Exercises" />
+        <p className="card text-amber-200">
+          The exercise lists are not in the database yet. Run{" "}
+          <code>supabase/migrations/0003_exercises.sql</code> in the Supabase SQL Editor, then reload.
+        </p>
+      </>
+    );
+  }
   if (error) {
     return (
       <>
@@ -107,18 +119,6 @@ export function ExercisesScreen() {
       <>
         <PageHeader title="Exercises" />
         <p className="text-neutral-500">Loading…</p>
-      </>
-    );
-  }
-
-  if (exercises.length === 0) {
-    return (
-      <>
-        <PageHeader title="Exercises" />
-        <p className="card text-amber-200">
-          The exercise lists are not in the database yet. Run{" "}
-          <code>supabase/migrations/0003_exercises.sql</code> in the Supabase SQL Editor, then reload.
-        </p>
       </>
     );
   }
