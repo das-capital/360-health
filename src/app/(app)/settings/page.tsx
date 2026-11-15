@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { NotificationsSection } from "@/components/NotificationsSection";
 import { PageHeader } from "@/components/PageHeader";
 import { GEMINI_KEY_STORAGE, useDeviceSetting, useLogicalToday } from "@/lib/hooks";
 import { formatLogicalDate, isLogicalDate, type LogicalDate } from "@/lib/logical-date";
@@ -22,6 +23,7 @@ export default function SettingsPage() {
       <div className="flex flex-col gap-8">
         {today && <TargetsSection today={today} />}
         <RemindersSection />
+        <NotificationsSection />
         <GeminiKeySection />
         <Section title="Export">
           <button type="button" disabled className="btn-secondary w-full">
@@ -299,7 +301,7 @@ function RemindersSection() {
   return (
     <Section
       title="Reminder times"
-      hint="Indian time (IST). Notifications themselves are switched on in Phase 4."
+      hint="Indian time (IST). Each check-in is skipped when there is nothing left to log."
     >
       {!times && !message && <p className="text-neutral-500">Loading…</p>}
       {times && (
