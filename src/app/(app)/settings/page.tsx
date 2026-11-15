@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { ExportSection } from "@/components/ExportSection";
 import { NotificationsSection } from "@/components/NotificationsSection";
 import { PageHeader } from "@/components/PageHeader";
 import { GEMINI_KEY_STORAGE, useDeviceSetting, useLogicalToday } from "@/lib/hooks";
@@ -26,9 +27,7 @@ export default function SettingsPage() {
         <NotificationsSection />
         <GeminiKeySection />
         <Section title="Export">
-          <button type="button" disabled className="btn-secondary w-full">
-            Export my data (coming in Phase 6)
-          </button>
+          <ExportSection />
         </Section>
         <Section title="Account">
           <button
