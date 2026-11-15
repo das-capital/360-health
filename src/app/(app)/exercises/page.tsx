@@ -1,10 +1,11 @@
-import { ComingSoon, PageHeader } from "@/components/PageHeader";
+import { Suspense } from "react";
+import { ExercisesScreen } from "@/components/exercises/ExercisesScreen";
+import { PageHeader } from "@/components/PageHeader";
 
 export default function ExercisesPage() {
   return (
-    <>
-      <PageHeader title="Exercises" />
-      <ComingSoon phase={3} what="Templates, set logging, cardio, plyometrics and “Did nothing today”." />
-    </>
+    <Suspense fallback={<PageHeader title="Exercises" />}>
+      <ExercisesScreen />
+    </Suspense>
   );
 }
