@@ -29,17 +29,27 @@ self.addEventListener("notificationclick", (event) => {
   event.waitUntil(
     (async () => {
       const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-      // If the app is already open, bring it forward on the right screen.
-      for (const client of windows) {
-        if (new URL(client.url).origin !== self.location.origin) continue;
+      const open = windows.find((client) => new URL(client.url).origin === self.location.origin);
+
+      if (open) {
         try {
-          if ("navigate" in client) await client.navigate(target);
+          // Bring the app forward FIRST. The phone only allows this for a brief
+          // moment after the tap, so nothing slow may come before it.
+          const focused = await open.focus();
+          // Then move it to the right screen, without letting a stuck page hold things up.
+          const client = focused || open;
+          if ("navigate" in client) {
+            await Promise.race([
+              client.navigate(target).catch(() => {}),
+              new Promise((resolve) => setTimeout(resolve, 2000)),
+            ]);
+          }
+          return;
         } catch {
-          // Not navigable from here; focusing the window is still useful.
+          // Could not bring that window forward; open a fresh one instead.
         }
-        return client.focus();
       }
-      return self.clients.openWindow(target);
+      await self.clients.openWindow(target);
     })(),
   );
 });

@@ -7,6 +7,7 @@ import {
   dueReminders,
   istMoment,
   reminderDays,
+  type HandledAt,
   type LoggedState,
   type ReminderKind,
   type ReminderTimes,
@@ -64,7 +65,7 @@ async function runForUser(db: SupabaseClient, userId: string, devices: StoredSub
       .select("reminder_morning, reminder_afternoon, reminder_evening")
       .eq("user_id", userId)
       .maybeSingle(),
-    db.from("reminder_log").select("kind").eq("user_id", userId).eq("date", today),
+    db.from("reminder_log").select("kind, created_at").eq("user_id", userId).eq("date", today),
   ]);
   if (settings.error) throw new Error(settings.error.message);
   if (log.error) throw new Error(log.error.message);
@@ -77,7 +78,10 @@ async function runForUser(db: SupabaseClient, userId: string, devices: StoredSub
       }
     : DEFAULT_TIMES;
 
-  const due = dueReminders(now, times, (log.data ?? []).map((row) => row.kind as ReminderKind));
+  const handledAt: HandledAt = {};
+  for (const row of log.data ?? []) handledAt[row.kind as ReminderKind] = new Date(row.created_at);
+
+  const due = dueReminders(now, times, handledAt);
   if (due.length === 0) return [];
 
   const state = await loadState(db, userId, today, yesterday);
@@ -88,13 +92,9 @@ async function runForUser(db: SupabaseClient, userId: string, devices: StoredSub
 
     // Claim this reminder first. If another run already claimed it, do nothing:
     // this is what stops the same reminder going out twice.
-    const claim = await db
-      .from("reminder_log")
-      .insert({ user_id: userId, date: today, kind, sent: reminder !== null });
-    if (claim.error) {
-      if (claim.error.code === "23505") continue;
-      throw new Error(claim.error.message);
-    }
+    const staleBefore = handledAt[kind] ? istMoment(today, times[kind]) : null;
+    const claimed = await claim(db, userId, today, kind, reminder !== null, staleBefore, now);
+    if (!claimed) continue;
 
     if (!reminder) {
       results.push({ kind, sent: false, reason: "already logged" });
@@ -108,6 +108,39 @@ async function runForUser(db: SupabaseClient, userId: string, devices: StoredSub
     results.push({ kind, sent: outcome.delivered > 0, delivered: outcome.delivered, errors: outcome.errors });
   }
   return results;
+}
+
+/**
+ * Mark a check-in as handled for the day. Returns false if another run got
+ * there first. An older entry (from before the reminder time was moved later)
+ * is taken over rather than duplicated.
+ */
+async function claim(
+  db: SupabaseClient,
+  userId: string,
+  today: string,
+  kind: ReminderKind,
+  sent: boolean,
+  /** Set when an older entry exists: it was made before this moment (the new reminder time). */
+  staleBefore: Date | null,
+  now: Date,
+): Promise<boolean> {
+  if (staleBefore) {
+    const { data, error } = await db
+      .from("reminder_log")
+      .update({ sent, created_at: now.toISOString() })
+      .eq("user_id", userId)
+      .eq("date", today)
+      .eq("kind", kind)
+      .lt("created_at", staleBefore.toISOString())
+      .select("kind");
+    if (error) throw new Error(error.message);
+    return (data ?? []).length > 0;
+  }
+  const { error } = await db.from("reminder_log").insert({ user_id: userId, date: today, kind, sent });
+  if (!error) return true;
+  if (error.code === "23505") return false;
+  throw new Error(error.message);
 }
 
 /** What is logged right now, as far as the reminders care. */

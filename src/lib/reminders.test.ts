@@ -29,24 +29,42 @@ describe("timing", () => {
   });
 
   it("is not due before its time", () => {
-    expect(dueReminders(ist("2026-11-15", "07:59"), DEFAULT_TIMES, [])).toEqual([]);
+    expect(dueReminders(ist("2026-11-15", "07:59"), DEFAULT_TIMES, {})).toEqual([]);
   });
 
   it("is due from its time, for up to an hour", () => {
-    expect(dueReminders(ist("2026-11-15", "08:00"), DEFAULT_TIMES, [])).toEqual(["morning"]);
-    expect(dueReminders(ist("2026-11-15", "08:59"), DEFAULT_TIMES, [])).toEqual(["morning"]);
-    expect(dueReminders(ist("2026-11-15", "09:00"), DEFAULT_TIMES, [])).toEqual([]);
+    expect(dueReminders(ist("2026-11-15", "08:00"), DEFAULT_TIMES, {})).toEqual(["morning"]);
+    expect(dueReminders(ist("2026-11-15", "08:59"), DEFAULT_TIMES, {})).toEqual(["morning"]);
+    expect(dueReminders(ist("2026-11-15", "09:00"), DEFAULT_TIMES, {})).toEqual([]);
   });
 
   it("goes out once per day", () => {
-    expect(dueReminders(ist("2026-11-15", "08:05"), DEFAULT_TIMES, ["morning"])).toEqual([]);
-    expect(dueReminders(ist("2026-11-15", "20:02"), DEFAULT_TIMES, ["morning", "afternoon"])).toEqual(["evening"]);
+    const morningDone = { morning: ist("2026-11-15", "08:00") };
+    expect(dueReminders(ist("2026-11-15", "08:05"), DEFAULT_TIMES, morningDone)).toEqual([]);
+    const twoDone = { morning: ist("2026-11-15", "08:00"), afternoon: ist("2026-11-15", "13:30") };
+    expect(dueReminders(ist("2026-11-15", "20:02"), DEFAULT_TIMES, twoDone)).toEqual(["evening"]);
+  });
+
+  it("goes out again if its time is moved later after it was sent", () => {
+    // Sent at 3:30 pm, then the time was changed to 3:36 pm.
+    const sent = { afternoon: ist("2026-11-15", "15:30") };
+    const moved = { ...DEFAULT_TIMES, afternoon: "15:36" };
+    expect(dueReminders(ist("2026-11-15", "15:35"), moved, sent)).toEqual([]);
+    expect(dueReminders(ist("2026-11-15", "15:40"), moved, sent)).toEqual(["afternoon"]);
+    // Once it has gone out at the new time, it stays quiet.
+    expect(dueReminders(ist("2026-11-15", "15:45"), moved, { afternoon: ist("2026-11-15", "15:40") })).toEqual([]);
+  });
+
+  it("does not go out again if its time is moved earlier", () => {
+    const sent = { afternoon: ist("2026-11-15", "15:30") };
+    const earlier = { ...DEFAULT_TIMES, afternoon: "15:10" };
+    expect(dueReminders(ist("2026-11-15", "15:40"), earlier, sent)).toEqual([]);
   });
 
   it("follows edited reminder times", () => {
     const times = { ...DEFAULT_TIMES, evening: "21:15" };
-    expect(dueReminders(ist("2026-11-15", "20:30"), times, [])).toEqual([]);
-    expect(dueReminders(ist("2026-11-15", "21:15"), times, [])).toEqual(["evening"]);
+    expect(dueReminders(ist("2026-11-15", "20:30"), times, {})).toEqual([]);
+    expect(dueReminders(ist("2026-11-15", "21:15"), times, {})).toEqual(["evening"]);
   });
 
   it("uses the 4 am logical day", () => {

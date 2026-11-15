@@ -35,14 +35,29 @@ export function istMoment(date: LogicalDate, time: string): Date {
   return new Date(`${date}T${time.slice(0, 5)}:00+05:30`);
 }
 
+/** When each check-in was last handled today (sent or skipped), if at all. */
+export type HandledAt = Partial<Record<ReminderKind, Date>>;
+
+/**
+ * True if a check-in still counts as done for the day. It does not if its
+ * time was moved later after it went out: a reminder handled at 3:30 pm and
+ * then rescheduled to 5:00 pm goes out again at 5:00 pm.
+ */
+export function isHandled(kind: ReminderKind, today: LogicalDate, times: ReminderTimes, handledAt: HandledAt): boolean {
+  const at = handledAt[kind];
+  return at !== undefined && at.getTime() >= istMoment(today, times[kind]).getTime();
+}
+
 /**
  * Which reminders should go out now: their time has arrived (within the late
- * window) and they have not been handled yet for this logical day.
+ * window) and they have not been handled for this logical day at their
+ * current time.
  */
-export function dueReminders(now: Date, times: ReminderTimes, handled: ReminderKind[]): ReminderKind[] {
+export function dueReminders(now: Date, times: ReminderTimes, handledAt: HandledAt): ReminderKind[] {
   const minute = istMinutes(now);
+  const today = logicalDate(now);
   return REMINDER_KINDS.filter((kind) => {
-    if (handled.includes(kind)) return false;
+    if (isHandled(kind, today, times, handledAt)) return false;
     const start = toMinutes(times[kind]);
     return minute >= start && minute < start + LATE_WINDOW_MINUTES;
   });
