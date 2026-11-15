@@ -48,3 +48,5 @@ next-env.d.ts
 
 # private SQL that contains secrets
 /supabase/local/
+
+.vercel
