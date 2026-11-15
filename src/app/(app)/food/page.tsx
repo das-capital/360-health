@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
+import { DayPicker } from "@/components/DayPicker";
 import { ManualEntry } from "@/components/food/ManualEntry";
 import { ReviewScreen } from "@/components/food/ReviewScreen";
 import { PageHeader } from "@/components/PageHeader";
@@ -11,7 +12,7 @@ import type { Existing } from "@/lib/food/plan";
 import { readScreenshots, type ImageInput } from "@/lib/food/reader";
 import { judgeDay, summariseDay, type MetricResult, type SlotSummary } from "@/lib/food/summary";
 import { GEMINI_KEY_STORAGE, useDeviceSetting, useLogicalToday } from "@/lib/hooks";
-import { addDays, formatLogicalDate, type LogicalDate } from "@/lib/logical-date";
+import type { LogicalDate } from "@/lib/logical-date";
 import type { Target } from "@/lib/targets";
 
 type Mode =
@@ -120,40 +121,8 @@ export default function FoodPage() {
     <>
       <PageHeader title="Food" />
 
-      {/* Day picker: any past day can be opened and filled in. */}
-      <div className="mb-4 flex items-center gap-2">
-        <button
-          type="button"
-          aria-label="Previous day"
-          className="btn-secondary w-12 px-0 text-xl"
-          onClick={() => setPicked(addDays(date, -1))}
-        >
-          ‹
-        </button>
-        <label className="relative flex h-12 flex-1 items-center justify-center rounded-xl border border-neutral-700 bg-neutral-900 font-medium">
-          {date === today ? "Today" : formatLogicalDate(date)}
-          <input
-            type="date"
-            aria-label="Choose day"
-            value={date}
-            max={today}
-            onChange={(e) => e.target.value && setPicked(e.target.value === today ? null : e.target.value)}
-            className="absolute inset-0 h-full w-full opacity-0"
-          />
-        </label>
-        <button
-          type="button"
-          aria-label="Next day"
-          className="btn-secondary w-12 px-0 text-xl"
-          disabled={date >= today}
-          onClick={() => {
-            const next = addDays(date, 1);
-            setPicked(next >= today ? null : next);
-          }}
-        >
-          ›
-        </button>
-      </div>
+      {/* Any past day can be opened and filled in. */}
+      <DayPicker date={date} today={today} onChange={(next) => setPicked(next >= today ? null : next)} />
 
       {error && <p className="card mb-4 border-red-500/40 text-red-300">{error}</p>}
 
