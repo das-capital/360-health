@@ -79,7 +79,19 @@ export type LoggedState = {
   exercise: boolean;
 };
 
-export type Reminder = { title: string; body: string; url: string; tag: string };
+export type Reminder = {
+  title: string;
+  body: string;
+  url: string;
+  tag: string;
+  /**
+   * Present when yesterday's mobility is still unanswered: the notification
+   * then carries Yes / No buttons. `rest` is what remains to log once mobility
+   * is answered (null if nothing), so the notification can be shown again
+   * without the mobility part.
+   */
+  mobility?: { rest: string | null };
+};
 
 /**
  * The notification for a check-in, or null when everything it would ask
@@ -96,13 +108,19 @@ export function buildReminder(
   afternoonAt: Date,
 ): Reminder | null {
   if (kind === "morning") {
-    const items = [
-      !state.stepsYesterday && "yesterday’s steps",
-      !state.sleep && "last night’s sleep score",
-      !state.mobilityYesterday && "yesterday’s mobility",
-    ].filter(Boolean) as string[];
+    const others = [!state.stepsYesterday && "yesterday’s steps", !state.sleep && "last night’s sleep score"].filter(
+      Boolean,
+    ) as string[];
+    const items = state.mobilityYesterday ? others : [...others, "yesterday’s mobility"];
     if (items.length === 0) return null;
-    return { title: "Morning check-in", body: `To log: ${list(items)}.`, url: "/", tag: "morning" };
+    return {
+      title: "Morning check-in",
+      body: `To log: ${list(items)}.`,
+      // Tapping opens the first thing still missing.
+      url: !state.stepsYesterday ? "/steps?d=yesterday" : !state.sleep ? "/sleep" : "/mobility",
+      tag: "morning",
+      ...(state.mobilityYesterday ? {} : { mobility: { rest: others.length > 0 ? `To log: ${list(others)}.` : null } }),
+    };
   }
 
   if (kind === "afternoon") {

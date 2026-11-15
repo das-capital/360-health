@@ -101,7 +101,12 @@ async function runForUser(db: SupabaseClient, userId: string, devices: StoredSub
       continue;
     }
 
-    const outcome = await sendPush(devices, reminder);
+    const { mobility, ...message } = reminder;
+    const outcome = await sendPush(devices, {
+      ...message,
+      // The mobility buttons answer for yesterday, even if tapped after the day rolls over.
+      ...(mobility ? { mobility: { date: yesterday, rest: mobility.rest } } : {}),
+    });
     if (outcome.expiredIds.length > 0) {
       await db.from("push_subscriptions").delete().in("id", outcome.expiredIds);
     }

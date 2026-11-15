@@ -8,6 +8,11 @@ export type PushMessage = {
   url: string;
   /** Notifications with the same tag replace each other. */
   tag: string;
+  /**
+   * Adds "Mobility: Yes / No" buttons that save the answer for `date` without
+   * opening the app. `rest` is the text to show afterwards, if anything is left.
+   */
+  mobility?: { date: string; rest: string | null };
 };
 
 export type StoredSubscription = { id: number; endpoint: string; p256dh: string; auth: string };

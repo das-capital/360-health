@@ -82,14 +82,27 @@ describe("morning check-in", () => {
     expect(buildReminder("morning", nothing, afternoonAt)).toEqual({
       title: "Morning check-in",
       body: "To log: yesterday’s steps, last night’s sleep score and yesterday’s mobility.",
-      url: "/",
+      url: "/steps?d=yesterday",
       tag: "morning",
+      mobility: { rest: "To log: yesterday’s steps and last night’s sleep score." },
     });
   });
 
   it("leaves out what is already logged", () => {
-    const body = buildReminder("morning", { ...nothing, stepsYesterday: true, mobilityYesterday: true }, afternoonAt)?.body;
-    expect(body).toBe("To log: last night’s sleep score.");
+    const reminder = buildReminder("morning", { ...nothing, stepsYesterday: true, mobilityYesterday: true }, afternoonAt);
+    expect(reminder?.body).toBe("To log: last night’s sleep score.");
+    expect(reminder?.url).toBe("/sleep");
+    // Mobility is answered, so no Yes / No buttons.
+    expect(reminder?.mobility).toBeUndefined();
+  });
+
+  it("offers mobility Yes / No, with nothing left over when it is the only thing missing", () => {
+    const reminder = buildReminder("morning", { ...nothing, stepsYesterday: true, sleep: true }, afternoonAt);
+    expect(reminder).toMatchObject({
+      body: "To log: yesterday’s mobility.",
+      url: "/mobility",
+      mobility: { rest: null },
+    });
   });
 
   it("is skipped when all three are done", () => {

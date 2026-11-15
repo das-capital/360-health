@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
+import { BAND_TEXT, sleepBand, stepsBand } from "@/lib/daily/rules";
 import { templateLabel } from "@/lib/exercises/types";
 import { loadFoodDay, loadTargets } from "@/lib/food/db";
 import { judgeDay, summariseDay } from "@/lib/food/summary";
 import { useLogicalToday } from "@/lib/hooks";
 import { addDays, formatLogicalDate, type LogicalDate } from "@/lib/logical-date";
 import { getSupabase } from "@/lib/supabase/client";
+import { targetFor } from "@/lib/targets";
 
 type Item = {
   key: string;
@@ -18,6 +20,8 @@ type Item = {
   logged: string | null;
   /** Shown in red, e.g. when calories are over target. */
   alert?: string;
+  /** Colour of the summary (steps and sleep follow their colour rules). Green if not given. */
+  tone?: string;
 };
 
 const number = new Intl.NumberFormat("en-IN");
@@ -63,18 +67,23 @@ async function loadChecklist(today: LogicalDate): Promise<Item[]> {
       label: "Steps",
       href: "/steps",
       logged: steps.data ? `${number.format(steps.data.count)} steps` : null,
+      tone: steps.data
+        ? BAND_TEXT[stepsBand(steps.data.count, targetFor(targets, "steps", today)?.value ?? null)]
+        : undefined,
     },
     {
       key: "sleep",
       label: "Last night’s sleep",
       href: "/sleep",
       logged: sleep.data ? (sleep.data.skipped ? "Skipped" : `Score ${sleep.data.score}`) : null,
+      tone: sleep.data ? BAND_TEXT[sleepBand(sleep.data.skipped ? null : sleep.data.score)] : undefined,
     },
     {
       key: "mobility",
       label: "Yesterday’s mobility",
       href: "/mobility",
       logged: mobility.data ? (mobility.data.done ? "Done" : "Not done") : null,
+      tone: mobility.data && !mobility.data.done ? "text-red-400" : undefined,
     },
     { key: "exercises", label: "Exercises", href: "/exercises", logged: exercise },
   ];
@@ -138,7 +147,7 @@ export default function TodayPage() {
                   </span>
                   <span className="flex-1">
                     <span className="block text-lg">{item.label}</span>
-                    <span className={item.logged ? "text-emerald-400" : "text-neutral-500"}>
+                    <span className={item.logged ? (item.tone ?? "text-emerald-400") : "text-neutral-500"}>
                       {item.logged ?? "Pending"}
                     </span>
                     {item.alert && <span className="block text-sm text-red-400">{item.alert}</span>}
