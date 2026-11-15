@@ -45,3 +45,6 @@ next-env.d.ts
 
 # real Healthify screenshots stay on this computer only
 /test-screenshots/
+
+# private SQL that contains secrets
+/supabase/local/

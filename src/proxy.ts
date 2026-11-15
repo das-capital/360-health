@@ -50,6 +50,7 @@ function redirectTo(request: NextRequest, pathname: string, from?: NextResponse)
 }
 
 export const config = {
-  // Everything except Next.js internals and static files (icons, manifest).
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:png|svg|ico|webp)$).*)"],
+  // Everything except Next.js internals, static files (icons, manifest, service
+  // worker) and the scheduled-job address, which checks its own secret instead.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|api/cron/|.*\\.(?:png|svg|ico|webp)$).*)"],
 };
