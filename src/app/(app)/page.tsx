@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
+import { templateLabel } from "@/lib/exercises/types";
 import { loadFoodDay, loadTargets } from "@/lib/food/db";
 import { judgeDay, summariseDay } from "@/lib/food/summary";
 import { useLogicalToday } from "@/lib/hooks";
@@ -31,7 +32,7 @@ async function loadChecklist(today: LogicalDate): Promise<Item[]> {
     db.from("steps").select("count").eq("date", today).maybeSingle(),
     db.from("sleep").select("score, skipped").eq("date", today).maybeSingle(),
     db.from("mobility").select("done").eq("date", yesterday).maybeSingle(),
-    db.from("workout_sessions").select("id").eq("date", today).limit(1),
+    db.from("workout_sessions").select("template").eq("date", today).order("created_at"),
     db.from("cardio_sessions").select("id").eq("date", today).limit(1),
     db.from("rest_days").select("date").eq("date", today).maybeSingle(),
   ]);
@@ -50,7 +51,9 @@ async function loadChecklist(today: LogicalDate): Promise<Item[]> {
   const foodAlert = calories.over !== null ? `Over target by ${number.format(calories.over)} cal` : undefined;
 
   let exercise: string | null = null;
-  if ((workouts.data?.length ?? 0) > 0 || (cardio.data?.length ?? 0) > 0) exercise = "Workout logged";
+  const done = (workouts.data ?? []).map((w) => templateLabel(w.template));
+  if ((cardio.data?.length ?? 0) > 0) done.push("Cardio");
+  if (done.length > 0) exercise = done.join(", ");
   else if (rest.data) exercise = "Rest day";
 
   return [

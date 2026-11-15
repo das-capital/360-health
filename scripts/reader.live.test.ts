@@ -123,7 +123,9 @@ describe("screenshot reader against real Healthify screenshots", () => {
     }));
     const result = await readScreenshots(apiKey, images);
     reads = result.reads;
-    console.log("Answered by model:", result.model);
+    process.stderr.write(`
+Answered by model: ${result.model}
+`);
   });
 
   it.each(cases.map((c, index) => [...c, index] as const))("%s: %s", (file, _what, expected, index) => {
