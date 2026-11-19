@@ -12,6 +12,9 @@ import { normaliseSlot, type ScreenRead } from "./types";
  */
 export const GEMINI_MODELS = ["gemini-flash-latest", "gemini-flash-lite-latest"] as const;
 
+/** How much Gemini "thinks" before answering: "minimal" | "low" | "medium" | "high". */
+const THINKING_LEVEL = "minimal";
+
 const endpoint = (model: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
@@ -129,12 +132,16 @@ export async function readScreenshots(
       temperature: 0,
       responseMimeType: "application/json",
       responseSchema: RESPONSE_SCHEMA,
+      // Reading printed numbers needs no reasoning. Thinking was most of the
+      // wait (over a minute for a full upload), so keep it to the minimum.
+      thinkingConfig: { thinkingLevel: THINKING_LEVEL },
     },
   });
 
   let lastError = "Gemini could not read the screenshots.";
-  for (const model of models) {
-    const outcome = await askModel(model, apiKey, body);
+  for (const [index, model] of models.entries()) {
+    const isLast = index === models.length - 1;
+    const outcome = await askModel(model, apiKey, body, isLast);
     if (outcome.ok) return { reads: parse(outcome.payload, images.length), model };
     lastError = outcome.error;
     if (outcome.fatal) break;
@@ -147,9 +154,15 @@ type Outcome =
   /** fatal = trying another model will not help (e.g. a bad key). */
   | { ok: false; error: string; fatal: boolean };
 
-async function askModel(model: string, apiKey: string, body: string): Promise<Outcome> {
+/**
+ * Ask one model. If it is overloaded or busy and another model is left to
+ * try, give up on this one at once rather than waiting through retries:
+ * the next model usually answers straight away.
+ */
+async function askModel(model: string, apiKey: string, body: string, isLast: boolean): Promise<Outcome> {
   let error = "";
-  for (let attempt = 0; attempt < 3; attempt++) {
+  const attempts = isLast ? 3 : 1;
+  for (let attempt = 0; attempt < attempts; attempt++) {
     if (attempt > 0) await sleep(3000 * attempt);
 
     let response: Response;

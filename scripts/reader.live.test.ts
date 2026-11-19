@@ -121,10 +121,12 @@ describe("screenshot reader against real Healthify screenshots", () => {
       mimeType: "image/jpeg",
       base64: readFileSync(join(DIR, PREFIX + file)).toString("base64"),
     }));
+    const started = Date.now();
     const result = await readScreenshots(apiKey, images);
+    const seconds = ((Date.now() - started) / 1000).toFixed(1);
     reads = result.reads;
     process.stderr.write(`
-Answered by model: ${result.model}
+Answered by model: ${result.model} in ${seconds} s
 `);
   });
 

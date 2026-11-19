@@ -319,8 +319,35 @@ function MealCard({ slot, onDelete }: { slot: SlotSummary; onDelete: (id: number
   );
 }
 
-/** Read a chosen file into memory as base64 for the Gemini request. */
-function toImageInput(file: File): Promise<ImageInput> {
+/**
+ * Longest side, in pixels, a screenshot is shrunk to before upload. The test
+ * screenshots (630 x 1400) read perfectly, so this keeps text sharp while a
+ * full-size phone PNG (several MB) becomes a JPEG of roughly 100-200 KB.
+ */
+const MAX_SIDE = 1600;
+
+/**
+ * Shrink a chosen screenshot and re-encode it as JPEG, in memory only, for the
+ * Gemini request. Falls back to the original file if the browser can't do it.
+ */
+async function toImageInput(file: File): Promise<ImageInput> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const url = canvas.toDataURL("image/jpeg", 0.85);
+    return { mimeType: "image/jpeg", base64: url.slice(url.indexOf(",") + 1) };
+  } catch {
+    return readOriginal(file);
+  }
+}
+
+/** Read a chosen file into memory as base64, unchanged. */
+function readOriginal(file: File): Promise<ImageInput> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error(`Could not open ${file.name}.`));
